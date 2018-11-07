@@ -1,0 +1,684 @@
+#include"stdafx.h"
+#include <gl/glut.h>   
+#include <stdio.h>    
+#include <string.h>    
+#include <stdlib.h>   
+#include <math.h> 
+#define PI 3.14159
+static int shoulder1 = 0;
+static int shoulder2 = 0;
+static int hand=0;
+static int turn1=0;
+static int tag=0; 
+int inner=10,outer=80;  
+int d1=0.5,d2=0.5;//手中物品大小
+static int turn=0 ;//转弯
+static float forward=0;//前进
+static float elbow = 0 ,z=0;  
+int w;   
+int h;  
+float x2=0;//视线
+float y2=0;//视线
+float z2=10;//视线
+float atx=0,aty=0,atz=0;  //at point initial position
+float angle=0; //for angle between view-line and z axis
+float r=170; //for distance between eye and at
+float step=r/10;  //for forward and backword step;
+
+GLfloat vertices[][3]={{1.0,-1.0,0},{1.0,1.0,0},{-1.0,1.0,0},{-1.0,-1.0,0}};
+GLfloat colors[][3]={{1.0,0.0,0.0},{0.0,1.0,1.0},{1.0,1.0,0.0},{0.0,1.0,0.0},{0.0,0.0,1.0},{1.0,0.0,1.0},{0.0,1.0,1.0},{1.0,1.0,1.0}};
+
+int font=(int)GLUT_BITMAP_8_BY_13;   
+char s[30];   
+int frame,timeOwn,timebase=0;
+
+
+static GLfloat xRot = 0.0f;
+static GLfloat yRot = 0.0f;
+static GLfloat zRot = 0.0f;
+//是否停止转动
+bool IsStop=false;   
+//光照  使用光源
+GLfloat lightPos[] = { 1.0f, 0.0f, -1.0f, 0.0f };
+GLfloat  specular[] = { 1.0f, 1.0f, 1.0f, -1.0f};//反射光
+GLfloat  specref[] =  { 0.75f, 0.75f, 0.75f, 1.0f };//模拟太阳光照射形成光照效果
+GLfloat  ambientLight[] = { 1.0f, 0.7f, 0.5f, 1.0f};//环绕光
+GLfloat  spotDir[] = { 0.0f, 0.0f, 1.0f };
+GLboolean bEdgeFlag = true;
+
+
+
+
+void showText(void);   
+void resetPerspectiveProjection() ;    
+void setOrthographicProjection() ;   
+void Something();
+void renderBitmapString(float x, float y, void *font,char *string);    
+
+
+
+//设置背景
+
+void SetupRC(void)  
+{ 
+glEnable(GL_CULL_FACE);//只渲染正面
+glEnable(GL_LIGHTING);//开启光照
+glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLight);//设置全局环境光为白光
+glLightfv(GL_LIGHT0,GL_DIFFUSE,ambientLight);//光源中的散射光强度 
+glLightfv(GL_LIGHT0,GL_SPECULAR,specular); //光源中的镜面反射光强度
+glLightfv(GL_LIGHT0,GL_POSITION,lightPos);//指定光源位置
+
+
+glLightf(GL_LIGHT0,GL_SPOT_CUTOFF,30.0f);//指定光源的最大散布角
+glLightf(GL_LIGHT0,GL_SPOT_EXPONENT,20.0f);//指定聚焦光源指数。
+glEnable(GL_LIGHT0);//开启GL_LIGHT0光源
+glEnable(GL_COLOR_MATERIAL);//启用函数
+glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);//可以用颜色来贴物体。如果没有这行代码，纹理将始终保持原来的颜色，
+
+
+glMaterialfv(GL_FRONT, GL_SPECULAR,specref); // 设置多边形正面的镜面反射属性
+glMateriali(GL_FRONT, GL_SHININESS,8);// 指定镜面指数
+glClearColor(0, 0, 0, 1 );//设置背景色
+}  
+  
+void display(void)  
+{  
+   glClear(GL_COLOR_BUFFER_BIT);//把窗口清除为当前颜色
+   glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+   glLoadIdentity();//重置当前指定的矩阵为单位矩阵
+   gluLookAt(x2,y2,z2,0,0,0,0,1,z2-10);//定义一个视图矩阵，并与当前矩阵相乘
+   glShadeModel(GL_SMOOTH);//控制opengl中绘制指定两点间其他点颜色的过渡模式
+
+  //定义机器人开始旋转
+   if (IsStop==false)
+   {
+       turn = (turn - 5) % 360; 
+       if (forward<2){
+  turn1=turn;  
+  forward = forward -0.04*sin((GLfloat)turn1/360*3.14*2);  
+  z=z-0.05*cos((GLfloat)turn1/360*3.14*2);  
+             if(tag==0){  
+             shoulder1 = (shoulder1 + 1);  
+             shoulder2 = (shoulder2 - 1);  
+                if(shoulder1>=0){elbow=elbow-1.2;}  
+                else{elbow=elbow+1.2;}  
+                      }  
+       else  
+      {  
+        shoulder1 = (shoulder1 - 1);  
+        shoulder2 = (shoulder2 + 1);  
+        if(shoulder1>=0){elbow=elbow+1.25;}  
+        else{elbow=elbow-1.2;}  
+       }  
+  if(shoulder1>30) {tag=1;}  
+  if(shoulder1<-30){tag=0;}  
+                     }
+	   else 
+  {
+  turn1=turn;  
+  forward = forward +0.04*sin((GLfloat)turn1/360*3.14*2);  
+  z=z+0.05*cos((GLfloat)turn1/360*3.14*2); 
+  if(tag==0){  
+  shoulder1 = (shoulder1 - 1);  
+  shoulder2 = (shoulder2 + 1);  
+  }  
+  else  
+  {  
+  shoulder1 = (shoulder1 + 1);  
+  shoulder2 = (shoulder2 - 1);  
+  }  
+  if(shoulder1>30)
+  {  
+  tag=0;  
+  }  
+  if(shoulder1<-30)
+  {  
+  tag=1; 
+  }  
+  }
+   }
+   //背景变色网格图绘制 
+   glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+  for (int i=-8;i<8;i=i+1.0) 
+   {
+   glPushMatrix(); 
+   glBegin(GL_LINE_STRIP);
+   glColor3ub(255,0,0);
+   glVertex3f(8.0f, i, 12.0f);
+   glColor3ub(0,(i+8)*17,-(i+8)*17);
+   glVertex3f(8.0f, i, -8.0f);
+   glColor3ub(255,(i+8)*17,0);
+   glVertex3f(-8.0f, i, -8.0f);
+   glColor3ub(0,0,255);
+   glVertex3f(-8.0f, i, 12.0f);
+   glEnd();
+   glPopMatrix();
+   } 
+  for (int i=-8;i<8;i=i+1.0) 
+   {
+glPushMatrix();  
+   glBegin(GL_LINE_STRIP);
+    glColor3ub(100,10*i,100);
+   glVertex3f(i,8.0f,12.0f);
+    glColor3ub(255-(i+8)*17,255,0);
+   glVertex3f( i,8.0f, -8.0f);
+    glColor3ub(255-(i+8)*17,0,(i+8)*17);
+   glVertex3f(i,-8.0f,  -8.0f);
+    glColor3ub(123,15*i,i);
+   glVertex3f( i,-8.0f, 12.0f);
+   glEnd();
+glPopMatrix();
+} 
+//变色圆环
+  for(int i=20;i<100;i=i+2)
+  {
+  glPushMatrix();  
+    glTranslatef(0.0,0.0,-i); 
+    glRotatef ((GLfloat) shoulder2, 1.0, 0.0, 1.0); 
+    glColor3ub((i-10)*2.83,(GLfloat) shoulder2*10,255-(i-10)*2.83);
+    glutWireTorus(0.1,(50+i)/10,50,50);
+   glPopMatrix();   
+  }
+//变色正方形
+   for(int i=11;i<100;i++)
+  {
+glPushMatrix();  
+    glTranslatef(0.0,0.0,i); 
+    glRotatef ((GLfloat) shoulder2, 0, 0.0, 1.0); 
+	glBegin(GL_POLYGON);
+	   glColor3fv(colors[0]);	 
+	    glVertex3fv(vertices[0]);
+	   glColor3fv(colors[1]);	 
+	    glVertex3fv(vertices[1]);
+	   glColor3fv(colors[2]);	 
+	    glVertex3fv(vertices[2]);
+	   glColor3fv(colors[3]);	 
+	    glVertex3fv(vertices[3]);
+    glEnd();
+glPopMatrix();   
+  }
+  
+   glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+   //机器人运动
+   glPushMatrix();  
+       glTranslatef (forward,0.0,z); //前进  
+       glRotatef ((GLfloat) turn, 0.0, 1.0, 0.0); 
+  Something();
+
+
+       glTranslatef (0.375,0.0, 0.0);//提起右大腿
+       glRotatef ((GLfloat) shoulder2, 1.0, 0.0, 0.0); 
+	   glTranslatef (0,0.0, 0.0);//提起左大腿
+       glRotatef ((GLfloat) shoulder2, 1.0, 0.0, 0.0); 
+
+
+  glPushMatrix();
+  glRotatef(yRot, 0.0f, 1.0f, 0.0f);
+  glRotatef(xRot, 1.0f, 0.0f, 0.0f);
+  glLightfv(GL_LIGHT0,GL_POSITION,lightPos);
+  glLightfv(GL_LIGHT0,GL_SPOT_DIRECTION,spotDir);
+  //画一个光源
+  glTranslatef(lightPos[0],lightPos[1],lightPos[2]);
+  glTranslatef(0,4,0);
+  glPushAttrib(GL_LIGHTING_BIT);
+  //glDisable(GL_LIGHTING);
+  glColor3ub(255-yRot/360*255,xRot/360*255,xRot/360*255);
+  glutWireSphere(xRot/30,30,30);
+  glPopAttrib();
+       glPopMatrix();
+       glTranslatef (0.0, -0.5, 0.0);   
+       glColor3f(0.8,1.0,0.2);   
+       glPushMatrix();
+       glScalef (0.5, 1.0, 0.5);
+       glutSolidCube(1.0);  
+       glPopMatrix();   
+   
+       glTranslatef (0.0, -0.5, 0.0);//提起右小腿   
+       glRotatef ((GLfloat) elbow, 1.0, 0.0, 0.0);  
+       glTranslatef (0.0, -0.5, 0.0);  
+      
+       glColor3f(0.5,0.1,0.8);        
+       glPushMatrix();  
+           glScalef (0.5, 1.0, 0.5);  
+           glutSolidCube(1.0);  
+       glPopMatrix();   
+   
+       glTranslatef (0.0, -0.5, -0.1);//右脚   
+       glColor3f(0.5,0.2,1.0);     
+       glPushMatrix();  
+           glScalef (0.5, 0.1, 0.7);  
+           glutSolidCube(1.0);  
+       glPopMatrix();   
+    glPopMatrix ();   
+   
+    glPushMatrix();  
+       glTranslatef (forward,0.0,z);   
+       glRotatef ((GLfloat) turn, 0.0, 1.0, 0.0);   
+   
+       glTranslatef (-0.375, 0.0, 0.0);//左大腿   
+       glRotatef ((GLfloat) shoulder1, 1.0, 0.0, 0.0);  
+       glTranslatef (0.0, -0.5, 0.0);   
+   
+       glColor3f(0.8,1.0,0.2);   
+       glPushMatrix();  
+           glScalef (0.5, 1.0, 0.5);  
+           glutSolidCube(1.0);  
+       glPopMatrix();   
+   
+   
+       glTranslatef (0.0, -0.5, 0.0);//左小腿   
+       glRotatef ((GLfloat) elbow, 1.0, 0.0, 0.0);  
+       glTranslatef (0.0, -0.5, 0.0);  
+      
+       glColor3f(0.5,0.1,0.8);   
+       glPushMatrix();  
+           glScalef (0.5, 1.0, 0.5);//缩放四方体
+           glutSolidCube(1.0);//画四方体  
+       glPopMatrix();   
+       glTranslatef (0.0, -0.5, -0.1);//左脚   
+       glColor3f(0.5,0.2,1.0);   
+       glPushMatrix();  
+           glScalef (0.5, 0.1, 0.7);  
+           glutSolidCube(1.0);  
+       glPopMatrix();   
+   
+   glPopMatrix();   
+          
+   glPushMatrix();   
+       glTranslatef (forward,0.0,z);   
+       glRotatef ((GLfloat) turn, 0.0, 1.0, 0.0);  
+         
+       glTranslatef (0.0, 1.0,  0.0);//躯干   
+          
+       glColor3f(0.5,0.5,1.0);   
+       glPushMatrix();  
+           glScalef (1.4, 2.0, 0.5);  
+           glutSolidCube(1.0);  
+       glPopMatrix();   
+   
+          
+       glTranslatef (0.0, 1.25, 0.0);//头   
+       glColor3f(0,1,0);   
+       glPushMatrix();  
+           glScalef (0.5, 0.5, 0.5);  
+           glutSolidCube(1.5);  
+       glPopMatrix();  
+
+	    glTranslatef (0.2, 0.2, 0);//眼睛 
+       glColor3f(0,0,0);   
+       glPushMatrix();  
+           glScalef (0.5, 0.5, 0.5);  
+           glutSolidSphere(0.2,20,20);  
+       glPopMatrix();  
+     glTranslatef (-0.4,0,0);//眼睛 
+       glColor3f(0,0,0);   
+       glPushMatrix();  
+           glScalef (0.5, 0.5, 0.5);  
+           glutSolidSphere(0.2,20,20);  
+     
+		   glPopMatrix();  
+    glTranslatef (0.2,-0.3,0);//嘴
+       glColor3f(1,0,0);   
+       glPushMatrix();  
+	   //	glRotatef ((GLfloat) turn, 1.0, 0, 0);
+           glScalef (0.8, 0.5, 0.5);  
+            glutWireTorus(0.1f,0.2f,50,50);
+ 
+       glPopMatrix();  
+
+	    glTranslatef (0,0.6,0);//帽子
+	glRotatef (-90, 1.0, 0, 0); 
+       glPushMatrix();  
+           glScalef (0.5, 0.5, 0.5);  
+		   glColor3f(1,1,0); 
+            glutWireCone(1.5f,5.0f,15,15);
+			glColor3f(1,1,0); 
+           glutWireTorus(0.5f,1.8,15,15);
+		    glTranslatef (0,0,5);
+			glColor3f(1,1,0);
+			glutSolidSphere(0.5,5,5);
+
+		   glTranslatef (2,0,-5);
+		   glColor3f(0,1,1); 
+		    glutWireCone(0.5,2,5,5);
+
+			glTranslatef (-4,0,0);
+		   glColor3f(0,1,1); 
+		    glutWireCone(0.5,2,5,5);
+
+		 
+       glPopMatrix();  
+
+
+   glPopMatrix();   
+          
+   glPushMatrix();   
+       glTranslatef (forward,0.0,z);   
+       glRotatef ((GLfloat) turn, 0.0, 1.0, 0.0);  
+          
+    
+       glTranslatef (0.85, 1.75, 0.0);//右臂   
+       glRotatef ((GLfloat) shoulder1, 1.0, 0.0, 0.0);  
+       glTranslatef (0.0, -0.5, 0.0);  
+      
+       glColor3f(1.0,0.0,1.0);      
+       glPushMatrix();  
+           glScalef (0.3, 1.3, 0.4);  
+           glutSolidCube(1.0); 
+		      glPushMatrix();
+		   glTranslatef (0, -0.8,0); 
+		  glScalef (2,d1,d2);
+		   glColor3f(1-(d1+d2)/20,d1/20,d2/20);    
+		   glutWireSphere(0.3,21,21);
+		   glPopMatrix();
+       glPopMatrix();   
+   
+   glPopMatrix();   
+   glPushMatrix();   
+       glTranslatef (forward,0.0,z);   
+       glRotatef ((GLfloat) turn, 0.0, 1.0, 0.0);  
+          
+       glTranslatef (-0.85, 1.75, 0.0);//左臂   
+       glRotatef ((GLfloat) shoulder2, 1.0, 0.0, 0.0);  
+       glTranslatef (0.0, -0.5, 0.0);  
+      
+       glColor3f(1.0,0.0,1.0);   
+       glPushMatrix();  
+           glScalef (0.3, 1.3, 0.4);  
+           glutSolidCube(1.0); 
+		   
+       glPopMatrix();   
+
+
+   glPopMatrix();   
+
+
+   glutSwapBuffers();  
+}     
+//随便画一些小东西
+void  Something()
+{
+	
+glPushMatrix();//位置的保存，进站
+glRotatef (xRot, 0.0, 0.0, 1.0);  
+glRotatef (yRot, 1.0, 0.0, 0);  
+glTranslatef(4,-2,0);//设置位置
+ glColor3f(0.6,1-xRot/360,yRot/360);  
+glutWireSphere(0.6f,10,10);
+glTranslatef(-8,0,0);//设置位置
+ glColor3f(yRot/360,0.6,xRot/360);  
+glutWireSphere(0.6f,10,10);
+glTranslatef(4,0,4);//设置位置
+ glColor3f(xRot/360,yRot/360,1);  
+glutWireSphere(0.6f,10,10);
+glTranslatef(0,0,-8);//设置位置
+ glColor3f(1,yRot/360,xRot/360);  
+glutWireSphere(0.6f,10,10);
+
+glPopMatrix();//位置的恢复，出站
+}
+void renderBitmapString(float x, float y, void *font,char *string)   
+{   
+  char *c;   
+  glRasterPos2f(x, y);   
+  for (c=string; *c != '\0'; c++) {   
+    glutBitmapCharacter(font, *c);   
+  }   
+}   
+  
+void reshape (int w1, int h1)  
+{   
+    w=w1;   
+    h=h1;  
+   glViewport (0, 0, (GLsizei) w1, (GLsizei) h1);   
+   glMatrixMode (GL_PROJECTION);  
+   glLoadIdentity ();  
+   gluPerspective(65.0, (GLfloat) w1/(GLfloat) h1, 1.0, 50.0);  
+   glMatrixMode(GL_MODELVIEW);  
+   glLoadIdentity();  
+   glTranslatef (0.0, 0.0, -8.0);  
+}  
+  
+void keyboard (unsigned char key, int x, int y)  
+{  
+   switch (key) {  
+	   case 'z':// 变长
+			d1++; 
+			 glutPostRedisplay();
+	        break;
+		case 'x':// 变宽
+			d2++;
+			 glutPostRedisplay();
+	        break;
+			case 'c':// 变短
+			d1--; 
+			if(d1<0) d1=0;
+		case 'v':// 变窄
+			d2--;
+			if(d2<0) d2=0;
+			 glutPostRedisplay();
+	        break;
+	   case 'u'://眼睛前移
+		   z2=z2+0.3;
+		    glutPostRedisplay();
+	        break;
+			 
+			case'j'://眼睛后移
+			z2=z2-0.3;
+			 glutPostRedisplay();
+			break;
+        
+			  case 'h':// 视线左移
+			x2=x2-0.3;
+			IsStop=false;
+         glutPostRedisplay();
+	        break;
+			  case 'k':// 视线右移
+			x2=x2+0.3;
+			IsStop=false;
+         glutPostRedisplay();
+	        break;
+		      case 'n':// 视线上移
+			y2=y2+0.3;
+			IsStop=false;
+         glutPostRedisplay();
+	        break;
+						  case 'm':// 视线下移
+			y2=y2-0.3;
+			IsStop=false;
+         glutPostRedisplay();
+	        break;
+      case 'w': //向后走 
+         turn1=turn;  
+         forward = forward -0.04*sin((GLfloat)turn1/360*3.14*2);  
+         z=z-0.05*cos((GLfloat)turn1/360*3.14*2);  
+           
+         if(tag==0){  
+             shoulder1 = (shoulder1 + 1);  
+             shoulder2 = (shoulder2 - 1);  
+             if(shoulder1>=0){elbow=elbow-1.2;}  
+             else{elbow=elbow+1.2;}  
+         }  
+         else  
+         {  
+             shoulder1 = (shoulder1 - 1);  
+             shoulder2 = (shoulder2 + 1);  
+             if(shoulder1>=0){elbow=elbow+1.25;}  
+             else{elbow=elbow-1.2;}  
+         }  
+         if(shoulder1>30){  
+             tag=1;  
+         }  
+         if(shoulder1<-30){  
+             tag=0;  
+         }  
+IsStop=true;
+         glutPostRedisplay();  
+         break;  
+      case 's': //向前走 
+         turn1=turn;  
+         forward = forward +0.04*sin((GLfloat)turn1/360*3.14*2);  
+         z=z+0.05*cos((GLfloat)turn1/360*3.14*2); 
+         if(tag==0){  
+             shoulder1 = (shoulder1 - 1);  
+             shoulder2 = (shoulder2 + 1);  
+         }  
+         else  
+         {  
+             shoulder1 = (shoulder1 + 1);  
+             shoulder2 = (shoulder2 - 1);  
+         }  
+         if(shoulder1>30){  
+             tag=0;  
+         }  
+         if(shoulder1<-30){  
+             tag=1;  
+         }  
+IsStop=true;
+         glutPostRedisplay();  
+         break;  
+      case 'd'://右转
+         turn = (turn - 5) % 360;  
+         glutPostRedisplay(); 
+IsStop=true;
+         break;  
+      case 'a'://左转
+         turn = (turn + 5) % 360;  
+         glutPostRedisplay();
+IsStop=true;
+         break;  
+      case 'l':  
+         shoulder1 = (shoulder1 + 2) % 360;  
+         shoulder2 = (shoulder2 - 4) % 360;  
+         glutPostRedisplay();  
+IsStop=true;
+         break;  
+      case 'L':  
+         shoulder1 = (shoulder1 - 5) % 360;  
+         shoulder2 = (shoulder2 + 10) % 360;  
+         glutPostRedisplay(); 
+IsStop=true;
+         break;  
+ case 'P':
+ IsStop=false;
+ break;
+ case 'p':
+ IsStop=false;
+ break;
+      case 'e':  
+         exit(0);  
+         break;  
+      default:  
+         break;  
+   }  
+}   
+//设置视觉角度  
+void setOrthographicProjection()    
+{   
+   // glMatrixMode(GL_PROJECTION);   
+	glMatrixMode(GL_MODELVIEW);
+	//glMatrixMode(GL_TEXTURE); 
+    glPushMatrix();   
+    glLoadIdentity();   
+    gluOrtho2D(0, w, 0, h);   
+    glScalef(1, -1, 1);   
+    glTranslatef(0, -h, 0);   
+    glMatrixMode(GL_MODELVIEW);   
+}   
+void resetPerspectiveProjection()    
+{   
+    glMatrixMode(GL_PROJECTION);   
+    glPopMatrix();   
+    glMatrixMode(GL_MODELVIEW);   
+}
+//光源的坐标变化
+void SpecialKeys(int key, int x, int y)
+{
+if(key == GLUT_KEY_UP)
+xRot-= 5.0f;
+if(key == GLUT_KEY_DOWN)
+xRot += 5.0f;
+if(key == GLUT_KEY_LEFT)
+yRot -= 5.0f;
+if(key == GLUT_KEY_RIGHT)
+yRot += 5.0f;
+if(key > 356.0f)
+xRot = 0.0f;
+if(key < -1.0f)
+xRot = 355.0f;
+if(key > 356.0f)
+yRot = 0.0f;
+if(key < -1.0f)
+yRot = 355.0f;
+glutPostRedisplay();
+} 
+//鼠标事件
+void Mouse(int button,int state, int x, int y)      
+{ 
+    if (state == GLUT_DOWN)//鼠标按下
+{
+if (x<0)
+{
+//向左旋转
+yRot -= 50.0f;
+}else if (x>=0)
+{
+//向右旋转
+yRot += 50.0f;
+}else if (y>=0)
+{
+//向上旋转
+xRot-= 50.0f;
+}else if (y<0)
+{
+//向下旋转
+xRot += 50.0f;
+}
+if(xRot> 356.0f)
+xRot = 0.0f;
+if(xRot < -1.0f)
+xRot = 355.0f;
+if(yRot > 356.0f)
+yRot = 0.0f;
+if(yRot < -1.0f)
+yRot = 355.0f;
+glutPostRedisplay();
+}
+}
+//时间函数,定时刷新
+void TimerFunction(int value)
+{
+display();
+    glutPostRedisplay();
+	
+glutTimerFunc(50,TimerFunction, 1);
+}
+//主函数
+int main(int argc, char** argv)  
+{  
+   glutInit(&argc, argv);  
+   glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB);  
+   glutInitWindowSize (800, 600);   
+   glutInitWindowPosition (100, 100);  
+   glutCreateWindow("机器人w:前行s:后退a:左转d:右转 武器z:变长x:变宽c:变短v:变窄 视线u:后移j:前移h:左移k:右移n:上移m:下移 p:自动旋转 l:手脚旋转 up:球体由大变小 down:球体由小变大 left:四球左旋转变色  right：四球右旋转变色鼠标：点击一次，四球变换颜色与位置");
+   printf("机器人w:前行s:后退a:左转d:右转\n");
+    printf("武器z:变长x:变宽c:变短v:变窄\n");
+	 printf("视线u:后移j:前移h:左移k:右移n:上移m:下移\n");
+	  printf("p:自动旋转 l:手脚旋转 \n");
+	   printf(" up:球体由大变小 down:球体由小变大 left:四球左旋转变色  right：四球右旋转变色\n鼠标：点击一次，四球变换颜色与位置\nw");
+   SetupRC(); 
+  
+   glutDisplayFunc(display);   
+   glutReshapeFunc(reshape);  
+   glutKeyboardFunc(keyboard);
+   glutSpecialFunc(SpecialKeys);
+   glutMouseFunc(Mouse);
+   glutTimerFunc(20, TimerFunction, 1);
+  //glutIdleFunc(display); 
+   
+   glutMainLoop();  
+   return 0;  
+}  
+
+
+
